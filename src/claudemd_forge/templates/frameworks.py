@@ -1,0 +1,208 @@
+"""Framework-specific CLAUDE.md presets."""
+
+from __future__ import annotations
+
+from claudemd_forge.models import FrameworkPreset
+
+FRAMEWORK_PRESETS: dict[str, FrameworkPreset] = {
+    "python-fastapi": FrameworkPreset(
+        name="Python + FastAPI",
+        description="FastAPI web application with async patterns",
+        coding_standards=[
+            "Use async/await for all endpoint handlers",
+            "Define request/response models with Pydantic",
+            "Use dependency injection for shared resources",
+            "Keep route handlers thin — business logic in service layer",
+            "Type hints required on all function signatures",
+        ],
+        anti_patterns=[
+            "Do NOT use synchronous database calls in async endpoints",
+            "Do NOT use `*` imports",
+            "Do NOT put business logic in route handlers",
+            "Do NOT use os.path — use pathlib.Path",
+            "Do NOT return raw dicts — use Pydantic response models",
+        ],
+        common_commands={
+            "dev server": "uvicorn app.main:app --reload",
+            "test": "pytest tests/ -v",
+            "lint": "ruff check .",
+            "format": "ruff format .",
+            "type check": "mypy src/",
+        },
+    ),
+    "python-cli": FrameworkPreset(
+        name="Python CLI",
+        description="Python command-line application with typer/click",
+        coding_standards=[
+            "Use typer or click for CLI argument parsing",
+            "Use rich for terminal output formatting",
+            "Type hints required on all function signatures",
+            "Google-style docstrings on all public functions",
+            "Exit codes: 0=success, 1=error, 2=warning",
+        ],
+        anti_patterns=[
+            "Do NOT use print() for output — use rich console or typer.echo()",
+            "Do NOT use os.path — use pathlib.Path",
+            "Do NOT use bare except: — catch specific exceptions",
+            "Do NOT hardcode file paths — use config or CLI args",
+            "Do NOT use global mutable state",
+        ],
+        common_commands={
+            "install": 'pip install -e ".[dev]"',
+            "test": "pytest tests/ -v",
+            "lint": "ruff check src/ tests/",
+            "format": "ruff format src/ tests/",
+            "type check": "mypy src/",
+        },
+    ),
+    "django": FrameworkPreset(
+        name="Django",
+        description="Django web application with ORM patterns",
+        coding_standards=[
+            "Use class-based views for CRUD operations",
+            "Define models with proper Meta classes and verbose names",
+            "Use Django REST framework serializers for API endpoints",
+            "Keep views thin — business logic in services or managers",
+            "Use Django migrations for all schema changes",
+        ],
+        anti_patterns=[
+            "Do NOT use raw SQL when the ORM can handle it",
+            "Do NOT put business logic in views or templates",
+            "Do NOT use `Model.objects.all()` without pagination in views",
+            "Do NOT hardcode secrets — use environment variables",
+            "Do NOT skip migrations — always run makemigrations",
+        ],
+        common_commands={
+            "dev server": "python manage.py runserver",
+            "migrate": "python manage.py migrate",
+            "make migrations": "python manage.py makemigrations",
+            "test": "python manage.py test",
+            "shell": "python manage.py shell_plus",
+        },
+    ),
+    "react-typescript": FrameworkPreset(
+        name="React + TypeScript",
+        description="React application with TypeScript",
+        coding_standards=[
+            "Use functional components with hooks exclusively",
+            "Define prop types with TypeScript interfaces, not `any`",
+            "Use named exports, not default exports",
+            "Keep components under 200 lines — extract sub-components",
+            "Co-locate tests with components: `Component.test.tsx`",
+        ],
+        anti_patterns=[
+            "Do NOT use class components",
+            "Do NOT use `any` type — define proper interfaces",
+            "Do NOT use inline styles — use Tailwind or CSS modules",
+            "Do NOT mutate state directly — use immutable patterns",
+            "Do NOT use `useEffect` for derived state — use `useMemo`",
+        ],
+        common_commands={
+            "dev": "npm run dev",
+            "build": "npm run build",
+            "test": "npm test",
+            "lint": "npm run lint",
+            "type check": "npx tsc --noEmit",
+        },
+    ),
+    "nextjs": FrameworkPreset(
+        name="Next.js",
+        description="Next.js App Router with TypeScript",
+        coding_standards=[
+            "Use App Router (app/) directory structure",
+            "Server Components by default, Client Components only when needed",
+            "Use TypeScript strict mode",
+            "Data fetching in Server Components with async/await",
+            "Use next/image for all images, next/link for navigation",
+        ],
+        anti_patterns=[
+            "Do NOT use Pages Router patterns in App Router projects",
+            "Do NOT use `any` type — define proper interfaces",
+            "Do NOT use client-side data fetching when server-side works",
+            "Do NOT put 'use client' at the top of every file",
+            "Do NOT use `useEffect` for initial data loading",
+        ],
+        common_commands={
+            "dev": "npm run dev",
+            "build": "npm run build",
+            "start": "npm start",
+            "lint": "npm run lint",
+            "type check": "npx tsc --noEmit",
+        },
+    ),
+    "rust": FrameworkPreset(
+        name="Rust",
+        description="Rust application or library",
+        coding_standards=[
+            "Use Result<T, E> for fallible operations, not panic",
+            "Derive common traits: Debug, Clone, PartialEq where appropriate",
+            "Use `thiserror` for library error types, `anyhow` for applications",
+            "Document public APIs with `///` doc comments including examples",
+            "Use `clippy` lints at warn level",
+        ],
+        anti_patterns=[
+            "Do NOT use `.unwrap()` in production code",
+            "Do NOT use `unsafe` without a safety comment",
+            "Do NOT clone when a reference will do",
+            "Do NOT use `String` when `&str` is sufficient",
+            "Do NOT suppress clippy warnings without justification",
+        ],
+        common_commands={
+            "build": "cargo build",
+            "test": "cargo test",
+            "lint": "cargo clippy -- -W warnings",
+            "format": "cargo fmt",
+            "doc": "cargo doc --open",
+        },
+    ),
+    "go": FrameworkPreset(
+        name="Go",
+        description="Go application with standard project layout",
+        coding_standards=[
+            "Follow standard Go project layout (cmd/, internal/, pkg/)",
+            "Use interfaces for dependency injection and testing",
+            "Handle all errors explicitly — no ignored error returns",
+            "Use table-driven tests",
+            "Run `go vet` and `golangci-lint` before commits",
+        ],
+        anti_patterns=[
+            "Do NOT ignore error returns (use `errcheck` linter)",
+            "Do NOT use `init()` functions unless absolutely necessary",
+            "Do NOT use global mutable state",
+            "Do NOT use `panic` for recoverable errors",
+            "Do NOT vendor dependencies unless required",
+        ],
+        common_commands={
+            "build": "go build ./...",
+            "test": "go test ./... -v",
+            "lint": "golangci-lint run",
+            "format": "gofmt -w .",
+            "vet": "go vet ./...",
+        },
+    ),
+    "node-express": FrameworkPreset(
+        name="Node.js + Express",
+        description="Express.js backend application",
+        coding_standards=[
+            "Use async/await for all asynchronous operations",
+            "Validate request bodies with zod or joi",
+            "Use middleware for cross-cutting concerns",
+            "Keep route handlers thin — business logic in services",
+            "Use structured logging (pino or winston)",
+        ],
+        anti_patterns=[
+            "Do NOT use callbacks — use async/await",
+            "Do NOT put business logic in route handlers",
+            "Do NOT use `any` type if using TypeScript",
+            "Do NOT hardcode configuration — use environment variables",
+            "Do NOT expose stack traces in production error responses",
+        ],
+        common_commands={
+            "dev": "npm run dev",
+            "start": "npm start",
+            "test": "npm test",
+            "lint": "npm run lint",
+            "build": "npm run build",
+        },
+    ),
+}
