@@ -106,40 +106,67 @@ class CommandAnalyzer:
         return recipes
 
     def _parse_pyproject_scripts(self, root: Path) -> dict[str, str]:
-        """Parse scripts and tool config from pyproject.toml."""
-        pyproject = root / "pyproject.toml"
-        if not pyproject.is_file():
-            return {}
-
+        """Parse scripts and tool config from pyproject.toml and related files."""
         commands: dict[str, str] = {}
-        try:
-            content = pyproject.read_text(errors="replace")
-        except OSError:
-            return commands
 
-        # Detect test framework.
-        if "pytest" in content:
-            commands["test"] = "pytest tests/ -v"
-        if "[tool.ruff" in content:
-            commands["lint"] = "ruff check src/ tests/"
-            commands["format"] = "ruff format src/ tests/"
-        if "[tool.mypy" in content:
-            commands["type check"] = "mypy src/"
-        if "[tool.black" in content:
-            commands["format"] = "black src/ tests/"
+        # Parse pyproject.toml if present.
+        pyproject = root / "pyproject.toml"
+        content = ""
+        if pyproject.is_file():
+            try:
+                content = pyproject.read_text(errors="replace")
+            except OSError:
+                content = ""
 
-        # Parse [project.scripts].
-        in_scripts = False
-        for line in content.splitlines():
-            if line.strip() == "[project.scripts]":
-                in_scripts = True
-                continue
-            if in_scripts:
-                if line.startswith("["):
-                    break
-                match = re.match(r'(\S+)\s*=\s*"(.+)"', line.strip())
-                if match:
-                    commands[match.group(1)] = match.group(2)
+        if content:
+            # Detect test framework.
+            if "pytest" in content:
+                commands["test"] = "pytest tests/ -v"
+            if "[tool.ruff" in content:
+                commands["lint"] = "ruff check src/ tests/"
+                commands["format"] = "ruff format src/ tests/"
+            if "[tool.mypy" in content:
+                commands["type check"] = "mypy src/"
+            if "[tool.black" in content:
+                commands["format"] = "black src/ tests/"
+            if "[tool.coverage" in content:
+                commands["coverage"] = "pytest --cov=src/ tests/"
+            if "[tool.isort" in content:
+                commands["isort"] = "isort src/ tests/"
+
+            # Parse [project.scripts] and [tool.poetry.scripts].
+            for header in ("[project.scripts]", "[tool.poetry.scripts]"):
+                in_scripts = False
+                for line in content.splitlines():
+                    if line.strip() == header:
+                        in_scripts = True
+                        continue
+                    if in_scripts:
+                        if line.startswith("["):
+                            break
+                        match = re.match(r'(\S+)\s*=\s*"(.+)"', line.strip())
+                        if match:
+                            commands[match.group(1)] = match.group(2)
+
+            # Detect tox in pyproject.
+            if "[tool.tox" in content:
+                commands["tox"] = "tox"
+
+        # Detect tox.ini file.
+        tox_ini = root / "tox.ini"
+        if "tox" not in commands and tox_ini.is_file():
+            commands["tox"] = "tox"
+
+        # Detect setup.cfg [tool:pytest] as fallback test command.
+        if "test" not in commands:
+            setup_cfg = root / "setup.cfg"
+            if setup_cfg.is_file():
+                try:
+                    cfg = setup_cfg.read_text(errors="replace")
+                    if "[tool:pytest]" in cfg:
+                        commands["test"] = "pytest"
+                except OSError:
+                    pass
 
         return commands
 

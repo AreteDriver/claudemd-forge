@@ -86,7 +86,8 @@ class DomainAnalyzer:
 
                 # Capitalized multi-word terms (potential proper nouns).
                 for match in re.finditer(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", text):
-                    terms.add(match.group(1))
+                    normalized = " ".join(match.group(1).split())
+                    terms.add(normalized)
 
                 break  # Only read first README found.
 

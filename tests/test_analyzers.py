@@ -163,6 +163,51 @@ class TestCommandAnalyzer:
         scripts = result.findings.get("pyproject_scripts", {})
         assert "test" in scripts or "lint" in scripts
 
+    def test_detects_poetry_scripts(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[tool.poetry.scripts]\nmyapp = "myapp.cli:main"\n'
+        )
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "myapp" in scripts
+
+    def test_detects_coverage_config(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.coverage.run]\nsource = ['src']\n")
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "coverage" in scripts
+
+    def test_detects_isort_config(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.isort]\nprofile = 'black'\n")
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "isort" in scripts
+
+    def test_detects_tox_ini(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
+        (tmp_path / "tox.ini").write_text("[tox]\nenvlist = py311\n")
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "tox" in scripts
+
+    def test_detects_tox_in_pyproject(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.tox]\nlegacy_tox_ini = '[tox]'\n")
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "tox" in scripts
+
+    def test_setup_cfg_pytest_fallback(self, tmp_path: Path) -> None:
+        (tmp_path / "setup.cfg").write_text("[tool:pytest]\naddopts = -v\n")
+        structure, config = _scan(tmp_path)
+        result = CommandAnalyzer().analyze(structure, config)
+        scripts = result.findings.get("pyproject_scripts", {})
+        assert "test" in scripts
+
     def test_section_content_has_code_block(self, tmp_react_project: Path) -> None:
         structure, config = _scan(tmp_react_project)
         result = CommandAnalyzer().analyze(structure, config)
@@ -194,6 +239,18 @@ class TestDomainAnalyzer:
         result = DomainAnalyzer().analyze(structure, config)
         terms = result.findings.get("readme_terms", [])
         assert any("ACME" in t for t in terms) or any("Big Data" in t for t in terms)
+
+    def test_readme_terms_whitespace_normalized(self, tmp_path: Path) -> None:
+        """Multi-word terms with irregular whitespace should be normalized."""
+        (tmp_path / "README.md").write_text(
+            "# Title\n\nCheck out  App  Router  and\nSome  Module here.\n"
+        )
+        structure, config = _scan(tmp_path)
+        result = DomainAnalyzer().analyze(structure, config)
+        terms = result.findings.get("readme_terms", [])
+        # No term should have consecutive spaces.
+        for term in terms:
+            assert "  " not in term, f"Term has double spaces: {term!r}"
 
     def test_extracts_api_routes(self, tmp_path: Path) -> None:
         (tmp_path / "routes.py").write_text(
