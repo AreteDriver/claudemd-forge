@@ -11,11 +11,14 @@ from claudemd_forge.licensing import (
     PRO_PRESETS,
     TIER_DEFINITIONS,
     Tier,
+    _compute_check_segment,
+    _validate_key_checksum,
     _validate_key_format,
     get_license_info,
     get_upgrade_message,
     has_feature,
     has_preset_access,
+    is_known_preset,
     is_pro,
 )
 
@@ -59,7 +62,7 @@ class TestTierDefinitions:
 
 class TestKeyValidation:
     def test_valid_key(self) -> None:
-        assert _validate_key_format("CMDF-ABCD-EFGH-IJKL") is True
+        assert _validate_key_format("CMDF-ABCD-EFGH-54EF") is True
 
     def test_valid_key_with_digits(self) -> None:
         assert _validate_key_format("CMDF-AB12-CD34-EF56") is True
@@ -71,7 +74,7 @@ class TestKeyValidation:
         assert _validate_key_format("CMDF-ABCD-EFGH") is False
 
     def test_too_many_segments(self) -> None:
-        assert _validate_key_format("CMDF-ABCD-EFGH-IJKL-MNOP") is False
+        assert _validate_key_format("CMDF-ABCD-EFGH-54EF-MNOP") is False
 
     def test_lowercase_rejected(self) -> None:
         assert _validate_key_format("CMDF-abcd-EFGH-IJKL") is False
@@ -83,7 +86,53 @@ class TestKeyValidation:
         assert _validate_key_format("") is False
 
     def test_whitespace_stripped(self) -> None:
-        assert _validate_key_format("  CMDF-ABCD-EFGH-IJKL  ") is True
+        assert _validate_key_format("  CMDF-ABCD-EFGH-54EF  ") is True
+
+
+class TestKeyChecksum:
+    def test_valid_checksum(self) -> None:
+        assert _validate_key_checksum("CMDF-ABCD-EFGH-54EF") is True
+
+    def test_invalid_checksum(self) -> None:
+        # Valid format but wrong check segment.
+        assert _validate_key_checksum("CMDF-ABCD-EFGH-XXXX") is False
+
+    def test_checksum_is_deterministic(self) -> None:
+        seg = _compute_check_segment("ABCD-EFGH")
+        assert seg == _compute_check_segment("ABCD-EFGH")
+
+    def test_checksum_differs_for_different_bodies(self) -> None:
+        seg1 = _compute_check_segment("ABCD-EFGH")
+        seg2 = _compute_check_segment("WXYZ-QRST")
+        assert seg1 != seg2
+
+    def test_checksum_is_4_chars_uppercase_hex(self) -> None:
+        seg = _compute_check_segment("ABCD-EFGH")
+        assert len(seg) == 4
+        assert seg == seg.upper()
+        # Must be valid hex.
+        int(seg, 16)
+
+    def test_format_valid_but_bad_checksum_stays_free(self) -> None:
+        """A key that passes format validation but fails checksum stays free."""
+        with patch(
+            "claudemd_forge.licensing._find_license_key",
+            return_value="CMDF-ABCD-EFGH-XXXX",
+        ):
+            info = get_license_info()
+            assert info.tier == Tier.FREE
+            assert info.valid is False
+
+
+class TestKnownPreset:
+    def test_community_preset_is_known(self) -> None:
+        assert is_known_preset("default") is True
+
+    def test_pro_preset_is_known(self) -> None:
+        assert is_known_preset("react-native") is True
+
+    def test_unknown_preset(self) -> None:
+        assert is_known_preset("totally-fake-preset") is False
 
 
 class TestLicenseDetection:
@@ -102,12 +151,12 @@ class TestLicenseDetection:
     def test_env_var_valid_key(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             info = get_license_info()
             assert info.tier == Tier.PRO
             assert info.valid is True
-            assert info.license_key == "CMDF-ABCD-EFGH-IJKL"
+            assert info.license_key == "CMDF-ABCD-EFGH-54EF"
 
     def test_invalid_key_stays_free(self) -> None:
         with patch(
@@ -120,7 +169,7 @@ class TestLicenseDetection:
 
     def test_file_license_key(self, tmp_path: Path) -> None:
         license_file = tmp_path / ".claudemd-forge-license"
-        license_file.write_text("CMDF-TEST-KEYS-HERE\n")
+        license_file.write_text("CMDF-TEST-KEYS-3F80\n")
 
         with (
             patch(
@@ -158,7 +207,7 @@ class TestFeatureAccess:
     def test_pro_has_diff(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             assert has_feature("diff") is True
 
@@ -181,7 +230,7 @@ class TestFeatureAccess:
     def test_pro_has_premium_preset(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             assert has_preset_access("react-native") is True
             assert has_preset_access("data-science") is True
@@ -198,7 +247,7 @@ class TestIsPro:
     def test_pro_tier(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             assert is_pro() is True
 

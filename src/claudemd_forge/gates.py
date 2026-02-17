@@ -17,6 +17,7 @@ from claudemd_forge.licensing import (
     get_upgrade_message,
     has_feature,
     has_preset_access,
+    is_known_preset,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,20 +47,24 @@ def require_pro(feature: str) -> Callable[[F], F]:
 
 
 def check_preset_access(preset_name: str) -> None:
-    """Raise typer.Exit if the preset requires Pro and user is on Free.
+    """Raise typer.Exit if the preset is unknown or requires Pro.
 
     Call this before applying a preset in generate/init commands.
+    Distinguishes between "preset doesn't exist" and "preset requires
+    a higher tier" so users get actionable error messages.
     """
+    if not is_known_preset(preset_name):
+        console = Console()
+        console.print(f"[red]Preset '{preset_name}' not found.[/red]")
+        console.print("[dim]Run 'claudemd-forge presets' to see available presets.[/dim]")
+        raise typer.Exit(1)
+
     if not has_preset_access(preset_name):
         console = Console()
         console.print(f"[yellow]Preset '{preset_name}' requires ClaudeMD Forge Pro.[/yellow]")
-        info = get_license_info()
-        pro_label = "Pro"
-        if info.tier == Tier.FREE:
-            console.print(
-                f"[dim]Upgrade to {pro_label} for premium presets: "
-                f"https://claudemd-forge.dev/pro[/dim]"
-            )
+        console.print(
+            "[dim]Upgrade to Pro for premium presets: https://claudemd-forge.dev/pro[/dim]"
+        )
         raise typer.Exit(1)
 
 

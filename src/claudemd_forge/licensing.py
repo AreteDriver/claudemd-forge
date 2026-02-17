@@ -13,6 +13,9 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+# Salt used to derive the check segment of license keys.
+_KEY_SALT = "claudemd-forge-v1"
+
 # License key file locations (checked in order).
 _LICENSE_LOCATIONS: list[str] = [
     ".claudemd-forge-license",
@@ -155,9 +158,29 @@ def _validate_key_format(key: str) -> bool:
     return True
 
 
-def _compute_key_checksum(key: str) -> str:
-    """Compute a deterministic checksum for a license key."""
-    return hashlib.sha256(key.strip().encode()).hexdigest()[:16]
+def _compute_check_segment(body: str) -> str:
+    """Derive the expected check segment from the key body.
+
+    The body is the two middle segments joined by a hyphen,
+    e.g. "ABCD-EFGH" for key "CMDF-ABCD-EFGH-XXXX".
+    Returns a 4-character uppercase hex string.
+    """
+    digest = hashlib.sha256(f"{_KEY_SALT}:{body}".encode()).hexdigest()
+    return digest[:4].upper()
+
+
+def _validate_key_checksum(key: str) -> bool:
+    """Verify the key's check segment matches its body.
+
+    The last segment must equal the HMAC-derived value from
+    segments 2 and 3. This prevents trivially guessed keys.
+    """
+    parts = key.strip().split("-")
+    if len(parts) != 4:
+        return False
+    body = f"{parts[1]}-{parts[2]}"
+    expected = _compute_check_segment(body)
+    return parts[3] == expected
 
 
 def _find_license_key() -> str | None:
@@ -201,8 +224,16 @@ def get_license_info() -> LicenseInfo:
             valid=False,
         )
 
-    # Valid format — activate Pro tier.
-    # In production, this would verify against a license server.
+    if not _validate_key_checksum(key):
+        logger.warning("License key checksum mismatch")
+        return LicenseInfo(
+            tier=Tier.FREE,
+            license_key=key,
+            valid=False,
+        )
+
+    # Valid format + checksum — activate Pro tier.
+    # In production, this would also verify against a license server.
     return LicenseInfo(
         tier=Tier.PRO,
         license_key=key,
@@ -222,6 +253,11 @@ def has_preset_access(preset_name: str) -> bool:
     info = get_license_info()
     tier_config = TIER_DEFINITIONS[info.tier]
     return preset_name in tier_config.preset_access
+
+
+def is_known_preset(preset_name: str) -> bool:
+    """Check if a preset name exists in any tier's access list."""
+    return any(preset_name in config.preset_access for config in TIER_DEFINITIONS.values())
 
 
 def is_pro() -> bool:

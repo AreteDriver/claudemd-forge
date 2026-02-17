@@ -32,7 +32,7 @@ class TestRequireProDecorator:
         """Pro-gated commands should run for Pro users."""
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             # init will fail on path validation but should get past the gate.
             result = runner.invoke(app, ["init", "/nonexistent/path"])
@@ -75,11 +75,37 @@ class TestCheckPresetAccess:
     def test_pro_preset_passes_for_pro_user(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             # Should not raise for Pro users.
             check_preset_access("react-native")
             check_preset_access("data-science")
+
+    def test_unknown_preset_gives_not_found(self) -> None:
+        """Unknown presets should say 'not found', not upsell to Pro."""
+        from click.exceptions import Exit
+
+        with (
+            patch(
+                "claudemd_forge.licensing._find_license_key",
+                return_value=None,
+            ),
+            pytest.raises(Exit),
+        ):
+            check_preset_access("totally-fake-preset")
+
+    def test_unknown_preset_message_not_pro(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Unknown preset error should not mention Pro upgrade."""
+        from click.exceptions import Exit
+
+        with (
+            patch(
+                "claudemd_forge.licensing._find_license_key",
+                return_value=None,
+            ),
+            pytest.raises(Exit),
+        ):
+            check_preset_access("nonexistent")
 
 
 class TestGetAvailablePresets:
@@ -95,7 +121,7 @@ class TestGetAvailablePresets:
     def test_pro_user_sees_unlocked(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             presets = get_available_presets()
             assert presets["default"] == "free"
@@ -133,7 +159,7 @@ class TestCLITierDisplay:
     def test_status_pro(self) -> None:
         with patch(
             "claudemd_forge.licensing._find_license_key",
-            return_value="CMDF-ABCD-EFGH-IJKL",
+            return_value="CMDF-ABCD-EFGH-54EF",
         ):
             result = runner.invoke(app, ["status"])
             assert result.exit_code == 0

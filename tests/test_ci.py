@@ -26,6 +26,28 @@ class TestGitHubAction:
         assert "pull-requests: write" in template
         assert "contents: read" in template
 
+    def test_template_uses_env_vars_not_direct_interpolation(self) -> None:
+        """Audit output must be passed via env vars, not ${{ }} in JS."""
+        template = get_action_template()
+        assert "process.env.AUDIT_OUTPUT" in template
+        assert "process.env.AUDIT_EXIT_CODE" in template
+        # Must NOT have direct interpolation in the script body.
+        lines = template.split("\n")
+        in_script = False
+        for line in lines:
+            if "script: |" in line:
+                in_script = True
+                continue
+            if in_script:
+                # Lines with less indentation end the script block.
+                stripped = line.lstrip()
+                if stripped and not line.startswith(" " * 14) and stripped[0] != "#":
+                    break
+                assert "${{" not in line, (
+                    f"Direct interpolation in script body is a "
+                    f"script injection risk: {line.strip()}"
+                )
+
     def test_generate_creates_file(self, tmp_path: Path) -> None:
         result = generate_github_action(tmp_path)
         assert result.exists()

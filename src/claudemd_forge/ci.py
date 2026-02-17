@@ -58,10 +58,13 @@ _GITHUB_ACTION_TEMPLATE = dedent("""\
 
           - name: Comment on PR
             uses: actions/github-script@v7
+            env:
+              AUDIT_OUTPUT: ${{ steps.audit.outputs.audit_output }}
+              AUDIT_EXIT_CODE: ${{ steps.audit.outputs.exit_code }}
             with:
               script: |
-                const output = `${{ steps.audit.outputs.audit_output }}`;
-                const exitCode = '${{ steps.audit.outputs.exit_code }}';
+                const output = process.env.AUDIT_OUTPUT;
+                const exitCode = process.env.AUDIT_EXIT_CODE;
 
                 let status = 'passed';
                 let icon = ':white_check_mark:';
