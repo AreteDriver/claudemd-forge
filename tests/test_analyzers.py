@@ -83,6 +83,48 @@ class TestPatternAnalyzer:
         result = PatternAnalyzer().analyze(structure, config)
         assert result.findings.get("type_hints") in ("present", "partial")
 
+    def test_python_primary_ignores_js_camelcase(self, tmp_path: Path) -> None:
+        """Python-primary project shouldn't report camelCase from JS files."""
+        # Create a mixed project with more Python files.
+        (tmp_path / "app.py").write_text(
+            "def get_users():\n    pass\n\ndef fetch_data():\n    pass\n"
+        )
+        (tmp_path / "utils.py").write_text(
+            "def parse_config():\n    pass\n\ndef validate_input():\n    pass\n"
+        )
+        (tmp_path / "helpers.js").write_text(
+            "const getUserName = (u) => u.name;\n"
+            "const formatDate = (d) => d.toISO();\n"
+            "function fetchData() { return null; }\n"
+        )
+        structure, config = _scan(tmp_path)
+        assert structure.primary_language == "Python"
+        result = PatternAnalyzer().analyze(structure, config)
+        assert result.findings["naming"] == "snake_case"
+
+    def test_ts_primary_reports_camelcase(self, tmp_path: Path) -> None:
+        """TypeScript-primary project should report camelCase."""
+        (tmp_path / "index.ts").write_text(
+            "const getUserName = (u: User) => u.name;\nfunction fetchData(): void {}\n"
+        )
+        (tmp_path / "utils.ts").write_text(
+            "const formatDate = (d: Date): string => d.toISOString();\n"
+        )
+        structure, config = _scan(tmp_path)
+        assert structure.primary_language == "TypeScript"
+        result = PatternAnalyzer().analyze(structure, config)
+        assert result.findings["naming"] == "camelCase"
+
+    def test_rust_fn_detected_as_snake_case(self, tmp_path: Path) -> None:
+        """Rust project should detect fn as snake_case."""
+        (tmp_path / "main.rs").write_text(
+            "fn main() {}\nfn get_user_name() -> String { todo!() }\n"
+            "fn parse_config() -> Config { todo!() }\n"
+        )
+        structure, config = _scan(tmp_path)
+        result = PatternAnalyzer().analyze(structure, config)
+        assert result.findings["naming"] == "snake_case"
+
     def test_empty_project_returns_no_content(self, tmp_path: Path) -> None:
         structure, config = _scan(tmp_path)
         result = PatternAnalyzer().analyze(structure, config)

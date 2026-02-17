@@ -53,7 +53,9 @@ class PatternAnalyzer:
         py_contents = [(e, c) for e, c in contents if e in (".py", ".pyi")]
         js_ts_contents = [(e, c) for e, c in contents if e in (".js", ".jsx", ".ts", ".tsx")]
 
-        findings["naming"] = self._detect_naming(contents)
+        findings["naming"] = self._detect_naming(
+            contents, structure.primary_language, py_contents, js_ts_contents
+        )
         findings["quote_style"] = self._detect_quote_style(py_contents or js_ts_contents)
         findings["type_hints"] = self._detect_type_hints(py_contents)
         findings["docstring_style"] = self._detect_docstring_style(py_contents)
@@ -74,12 +76,27 @@ class PatternAnalyzer:
             section_content=section,
         )
 
-    def _detect_naming(self, contents: list[tuple[str, str]]) -> str:
-        """Detect dominant naming convention for functions."""
+    def _detect_naming(
+        self,
+        contents: list[tuple[str, str]],
+        primary_language: str | None = None,
+        py_contents: list[tuple[str, str]] | None = None,
+        js_ts_contents: list[tuple[str, str]] | None = None,
+    ) -> str:
+        """Detect dominant naming convention, weighted by primary language."""
+        # When primary language is known, only analyze its files.
+        if primary_language in ("Python", "Rust") and py_contents:
+            target = py_contents
+        elif primary_language in ("TypeScript", "JavaScript") and js_ts_contents:
+            target = js_ts_contents
+        else:
+            target = contents
+
         snake = 0
         camel = 0
-        for _, text in contents:
+        for _, text in target:
             snake += len(re.findall(r"\bdef [a-z][a-z0-9_]+\(", text))
+            snake += len(re.findall(r"\bfn [a-z][a-z0-9_]+\(", text))
             camel += len(re.findall(r"\bfunction [a-z][a-zA-Z0-9]+\(", text))
             camel += len(re.findall(r"\bconst [a-z][a-zA-Z0-9]+ =", text))
         if snake > camel:
