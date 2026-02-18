@@ -252,8 +252,10 @@ class SectionGenerator:
         lines = [
             "## Git Conventions",
             "",
-            "- Commit messages: Conventional commits"
-            " (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`)",
+            (
+                "- Commit messages: Conventional commits"
+                " (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`)"
+            ),
             "- Branch naming: `feat/description`, `fix/description`",
             "- Run tests before committing",
             "",

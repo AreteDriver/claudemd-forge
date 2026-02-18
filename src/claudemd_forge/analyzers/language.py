@@ -93,7 +93,7 @@ class LanguageAnalyzer:
                 if "setuptools" in content or "hatchling" in content or "flit" in content:
                     managers.append("pip")
             except OSError:
-                pass
+                pass  # Best-effort read; skip if unreadable
         return sorted(set(managers))
 
     def _detect_toolchains(self, root: Path) -> dict[str, list[str]]:

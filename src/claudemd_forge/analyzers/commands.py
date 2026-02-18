@@ -166,7 +166,7 @@ class CommandAnalyzer:
                     if "[tool:pytest]" in cfg:
                         commands["test"] = "pytest"
                 except OSError:
-                    pass
+                    pass  # Best-effort read; skip if unreadable
 
         return commands
 

@@ -111,7 +111,6 @@ def generate(
             analyses = run_all(structure, config)
             composer = DocumentComposer(config)
             content = composer.compose(structure, analyses)
-            score = composer.estimate_quality_score(content)
 
         out_path.write_text(content)
 
