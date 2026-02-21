@@ -149,4 +149,4 @@ class TestHelp:
     def test_version(self) -> None:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "0.1.0" in result.output
+        assert "0.2.0" in result.output
